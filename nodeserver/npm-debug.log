@@ -1,0 +1,59 @@
+0 info it worked if it ends with ok
+1 verbose cli [ '/usr/local/bin/node',
+1 verbose cli   '/usr/local/bin/npm',
+1 verbose cli   'install',
+1 verbose cli   'dgram' ]
+2 info using npm@1.2.30
+3 info using node@v0.10.11
+4 verbose read json /home/i2t/Dropbox/i2T/Maestria/Tesis/Desarrollo/Server/simones/nodeserver/package.json
+5 verbose read json /home/i2t/Dropbox/i2T/Maestria/Tesis/Desarrollo/Server/simones/nodeserver/node_modules/socket.io/package.json
+6 verbose read json /home/i2t/Dropbox/i2T/Maestria/Tesis/Desarrollo/Server/simones/nodeserver/package.json
+7 verbose cache add [ 'dgram', null ]
+8 verbose cache add name=undefined spec="dgram" args=["dgram",null]
+9 verbose parsed url { protocol: null,
+9 verbose parsed url   slashes: null,
+9 verbose parsed url   auth: null,
+9 verbose parsed url   host: null,
+9 verbose parsed url   port: null,
+9 verbose parsed url   hostname: null,
+9 verbose parsed url   hash: null,
+9 verbose parsed url   search: null,
+9 verbose parsed url   query: null,
+9 verbose parsed url   pathname: 'dgram',
+9 verbose parsed url   path: 'dgram',
+9 verbose parsed url   href: 'dgram' }
+10 silly lockFile 2ef82937-dgram dgram
+11 verbose lock dgram /home/i2t/.npm/2ef82937-dgram.lock
+12 silly lockFile 2ef82937-dgram dgram
+13 silly lockFile 2ef82937-dgram dgram
+14 verbose addNamed [ 'dgram', '' ]
+15 verbose addNamed [ null, '' ]
+16 silly lockFile bd8d1382-dgram dgram@
+17 verbose lock dgram@ /home/i2t/.npm/bd8d1382-dgram.lock
+18 silly addNameRange { name: 'dgram', range: '', hasData: false }
+19 verbose url raw dgram
+20 verbose url resolving [ 'https://registry.npmjs.org/', './dgram' ]
+21 verbose url resolved https://registry.npmjs.org/dgram
+22 info trying registry request attempt 1 at 15:58:54
+23 http GET https://registry.npmjs.org/dgram
+24 http 404 https://registry.npmjs.org/dgram
+25 silly registry.get cb [ 404,
+25 silly registry.get   { server: 'CouchDB/1.3.0 (Erlang OTP/R15B03)',
+25 silly registry.get     date: 'Wed, 19 Jun 2013 20:58:55 GMT',
+25 silly registry.get     'content-type': 'application/json',
+25 silly registry.get     'content-length': '52',
+25 silly registry.get     'cache-control': 'must-revalidate' } ]
+26 silly lockFile bd8d1382-dgram dgram@
+27 silly lockFile bd8d1382-dgram dgram@
+28 error 404 'dgram' is not in the npm registry.
+28 error 404 You should bug the author to publish it
+28 error 404
+28 error 404 Note that you can also install from a
+28 error 404 tarball, folder, or http url, or git url.
+29 error System Linux 3.2.0-45-generic-pae
+30 error command "/usr/local/bin/node" "/usr/local/bin/npm" "install" "dgram"
+31 error cwd /home/i2t/Dropbox/i2T/Maestria/Tesis/Desarrollo/Server/simones/nodeserver
+32 error node -v v0.10.11
+33 error npm -v 1.2.30
+34 error code E404
+35 verbose exit [ 1, true ]

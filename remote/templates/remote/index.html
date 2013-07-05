@@ -1,0 +1,444 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>USRPWeb</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="description" content="" />
+		<meta name="author" content="" />
+		<link href="{% static 'remote/css/bootstrap.css' %}" rel="stylesheet" />
+		<link href="{% static 'remote/css/bootstrap-responsive.css' %}" rel="stylesheet" />
+		<style type="text/css">
+			html{
+				height: 100%;
+			}
+
+			body {
+				padding-top: 60px;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="navbar navbar-inverse navbar-fixed-top">
+           		<div class="navbar-inner">
+				<div class="container">					
+					<a class="brand" href="/remote/index">i2T</a>
+				</div>
+			</div>
+		</div>
+
+	<div class="container">
+		<div>
+			<h1>USRPWeb</h1>
+		</div>
+		<div>
+			<div style="position: absolute; width: 300px;">
+				<h5>Properties</h5>
+				<p>				
+					<label for="center_freq">Center freq</label>
+					<input type="number" name="center_freq" id="center_freq" /><br />
+					<label for="start_freq">Start freq</label>
+					<input type="number" name="start_freq" id="start_freq" /><br />
+					<label for="stop_freq">Stop freq</label>
+					<input type="number" name="stop_freq" id="stop_freq" /><br />
+					<label for="samp_rate">Span</label>
+					<input type="number" name="samp_rate" id="samp_rate" /><br />
+					<label for="ref_level">Reference level</label>
+					<input type="number" name="ref_level" id="ref_level" value="10"/><br />
+					<label for="db_div">dB/div</label>
+					<input type="number" name="db_div" id="db_div" value="10"/><br />
+					<label for="average">Average</label>
+					<input type="number" name="average" id="average" value="10"/><br />
+					<button id="average_btn">Average</button>
+					<button id="peak_search">Peak search</button>
+					<button id="max_hold">Max hold</button><br />
+				</p>
+				<h5>Log</h5>
+				<p>	
+					<span id="activitylog"></span>
+				</p>
+			</div>
+			<div style="position: absolute; margin-left: 300px;">
+				<h5>Plot</h5>
+				<div id="placeholder" style="height:400px; width:1000px;"></div>
+					<div>
+						<span id="peakValue"></span>
+					</div>
+				</div>
+			</div>	
+		</div>
+	</body>
+	<!-- Scripts -->
+	<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+	<script src="{% static 'remote/js/bootstrap.js' %}"></script>
+	<!-- In-page scripts -->
+	<script src="http://localhost:1337/socket.io/socket.io.js"></script>
+	<script src="{% static 'remote/js/flot/jquery.flot.js' %}"></script>
+	<script src="{% static 'remote/js/flot/jquery.flot.symbol.js' %}"></script>
+
+	<script type="text/javascript"> // This script can be separated from the html file
+		
+		// This function changes a remote parameter from http://server_ip:server_port/remote/set/set_center_freq/870000000/ 
+		function changeRemoteParameter(address, parameter, value)
+		{
+			var url = address + "/remote/set/" + parameter + "/" + value + "/";
+			var response = httpGet(url);
+			return response;
+		}
+
+		// This function does http requests
+		function httpGet(theUrl)
+		{
+			var httpRequest = null;
+			httpRequest = new XMLHttpRequest();
+			httpRequest.open( "GET", theUrl, false );
+			httpRequest.send( null );
+			return httpRequest.responseText;
+		}
+		
+		// This function obtains the value of a remote parameter from http://server_ip:server_port/remote/get/get_center_freq/
+		function getRemoteParameter(address, parameter)
+		{
+			var url = address + "/remote/get/" + parameter + "/";
+			var response = httpGet(url);
+			return response;
+		}
+		
+	</script>
+
+	<script type="text/javascript"> // This script cannot be separated from the html file
+			
+		var serverIPAddress = "http://localhost:8000"; // 192.168.160.88:8000
+		var serverSocketIPAddress = "http://localhost:1337"; // 192.168.160.88:1337
+		
+		// This function creates the plot
+		var plot;
+		function createPlot(referenceLevel, dbdiv, samples){
+			
+			var minValue = referenceLevel - dbdiv * 10;
+			
+			plot = $.plot("#placeholder", samples, {
+					series: {
+						shadowSize: 0
+					},
+					yaxis: {
+						min: minValue,
+						max: referenceLevel,
+						tickSize: dbdiv
+					},
+					xaxis: {
+						show: true,
+						min: 0,
+						max: 1024
+					}
+				});
+		}
+		
+		// Opening the socket.io instance. It updates the samplesFromServer collection
+		var samplesFromServer = [];
+		var socket;
+		function openSocket(){
+			socket = io.connect(serverSocketIPAddress);
+			socket.on('sample', function (data) {
+				res = [];			
+				for (var i = 0; i < data.length; i++) {
+					res.push([i, data[i]]);
+				}
+				samplesFromServer = res;
+			});
+		}
+		
+		// Average management
+		var averageEnabled = false;
+		var average = [];
+		var averageSum = [];
+		var averageCounter = 0;
+		function generateAverage(totalSamples, base)
+		{
+			if (average.length == 0)
+			{
+				average = base;
+				averageCounter++;
+			}
+			else
+			{
+				if (averageCounter < totalSamples)
+				{
+					addToAverage(base);
+				}
+				else
+				{
+					for( var i = 0; i < averageSum.length; i++)
+					{
+						averageSum[i][1] = averageSum[i][1] / totalSamples;
+					}
+					
+					average = averageSum;
+					averageSum =[];
+					averageCounter = 0;				
+				}
+			}
+		}
+		
+		function addToAverage(averageSample)
+		{
+			if( averageSum.length == 0)
+			{
+				averageSum = averageSample;
+			}
+			else
+			{
+				for (var i = 0; i < averageSample.length; i++)
+				{
+					averageSum[i][1] += averageSample[i][1];
+				}
+			}
+			
+			averageCounter++;
+		}	
+		
+		// Max hold management
+		var maxHoldEnabled = false;
+		var maxHoldSamples = [];
+		function generateMaxHoldSamples(base)
+		{
+			if(maxHoldSamples.length == 0)
+			{
+				maxHoldSamples = base;
+			}
+			
+			for(var i = 0; i < base.length; i++)
+			{
+				if(base[i][1] > maxHoldSamples[i][1])
+				{
+					maxHoldSamples[i] = base[i];
+				}
+			}
+		}
+		
+		// Peak search management
+		var peakSearchVisible = false;
+		var peakSearchFilled = false;
+		var peakSearchIndex = 0;
+		function generatePeakSearchIndex(base)
+		{
+			var max = base[0][1];
+			
+			for (var i = 0; i < base.length; i++)
+			{
+				if (base[i][1] > max)
+				{
+					max = base[i][1];
+					peakSearchIndex = i;
+				}
+			}
+		}
+		
+		// Plot drawing
+		var updateInterval = 30;
+		function startDrawingPlot()
+		{
+			var plotData = [];
+			var baseData = [];
+			
+			if(averageEnabled)
+			{
+				generateAverage($("#average").val(), samplesFromServer);
+				baseData = average;
+			}
+			else
+			{
+				baseData = samplesFromServer;
+			}
+			
+			plotData.push(baseData);
+			
+			if(maxHoldEnabled)
+			{
+				generateMaxHoldSamples(baseData);			
+				plotData.push(maxHoldSamples);
+			}
+			else
+			{
+				// Blue line is empty
+				plotData.push([]);
+			}
+			
+			if(peakSearchVisible)
+			{
+				if(!peakSearchFilled)
+				{
+					generatePeakSearchIndex(baseData);
+					peakSearchFilled = true;
+				}
+				
+				var axes = plot.getAxes();
+				document.getElementById("peakValue").innerHTML = "Peak " + baseData[peakSearchIndex][0] + ": " + baseData[peakSearchIndex][1];
+				plotData.push([[peakSearchIndex, axes.yaxis.min], [peakSearchIndex, axes.yaxis.max]]);
+			}
+			else
+			{
+				// Red line is empty
+				plotData.push([]);
+			}
+			
+			plot.setData(plotData);
+			plot.draw();
+			
+			// Draw again
+			setTimeout(startDrawingPlot, updateInterval);
+		}
+		
+		// GUI helper for getting a remote parameter
+		function getParameter(request, guiElement)
+		{
+			$(guiElement).val(getRemoteParameter(serverIPAddress, request));
+		}
+		
+		// GUI helper for changing a remote parameter
+		function changeParameter(request, guiElement)
+		{
+			var response = changeRemoteParameter(serverIPAddress, request, $(guiElement).val());
+			$("#activitylog").prepend(response + "<br/>");
+			refreshParameters();
+		}
+		
+		// This function gets the value of all the remote parameters, and updates the GUI
+		function refreshParameters()
+		{
+			getParameter("get_center_freq", "#center_freq");
+			getParameter("get_start_freq", "#start_freq");
+			getParameter("get_stop_freq", "#stop_freq");
+			getParameter("get_samp_rate", "#samp_rate");
+		}
+		
+		// This function enables the GUI interaction events
+		function enableGUIEvents()
+		{
+			// Change remote parameters
+			$("#center_freq").keyup(function (e) {
+				if (e.keyCode == 13) {				
+					changeParameter("set_center_freq", "#center_freq");
+				}
+			});
+			
+			$("#start_freq").keyup(function (e) {
+				if (e.keyCode == 13) {				
+					changeParameter("set_start_freq", "#start_freq");
+				}
+			});
+			
+			$("#stop_freq").keyup(function (e) {
+				if (e.keyCode == 13) {
+					changeParameter("set_stop_freq", "#stop_freq");
+				}
+			});
+			
+			$("#samp_rate").keyup(function (e) {
+				if (e.keyCode == 13) {				
+					changeParameter("set_samp_rate", "#samp_rate");
+				}
+			});
+			
+			// Change local parameters
+			$("#average_btn").click(function () {
+				if(averageEnabled)
+				{
+					average = [];
+					averageSum = [];
+					averageCounter = 0;				
+					$(this).css('color','black');
+				}
+				else
+				{
+					$(this).css('color','green');
+				}
+				
+				maxHoldSamples = []; // Calculate max hold again
+				averageEnabled = !averageEnabled;
+				$("#activitylog").prepend("Average: " + averageEnabled + "<br/>");
+			});
+			
+			$("#max_hold").click(function () {
+				if(maxHoldEnabled)
+				{
+					maxHoldSamples = [];
+					$(this).css('color','black');
+				}
+				else
+				{
+					$(this).css('color','green');
+				}
+				
+				maxHoldEnabled = !maxHoldEnabled;
+				$("#activitylog").prepend("Max hold: " + maxHoldEnabled + "<br/>");
+			});
+			
+			$("#peak_search").click(function () {
+				if(peakSearchVisible)
+				{
+					peakSearchIndex = 0;
+					peakSearchFilled = false;
+					document.getElementById("peakValue").innerHTML = "";
+					$(this).css('color','black');
+				}
+				else
+				{
+					$(this).css('color','green');
+				}
+				
+				peakSearchVisible = !peakSearchVisible;
+				$("#activitylog").prepend("Peak search: " + peakSearchVisible + "<br/>");
+			});
+			
+			$("#ref_level").keyup(function (e) {
+				if (e.keyCode == 13) {
+				
+					if($("#db_div").val() <= 0)
+					{
+						$("#db_div").val(10);
+					}
+				
+					createPlot($("#ref_level").val(), $("#db_div").val(), samplesFromServer);
+					$("#activitylog").prepend("Reference level: " + $("#ref_level").val() + "<br/>");
+				}
+			});
+			
+			$("#db_div").keyup(function (e) {
+				if (e.keyCode == 13) {
+					
+					if($("#db_div").val() <= 0)
+					{
+						$("#db_div").val(10);
+					}
+					
+					createPlot($("#ref_level").val(), $("#db_div").val(), samplesFromServer);
+					$("#activitylog").prepend("dB/div: " + $("#db_div").val() + "<br/>");
+				}
+			});
+		}
+		
+		// This function starts everything
+		$(function () {
+			
+			//Enable GUI events
+			enableGUIEvents();
+			
+			// Open the socket.io instance
+			openSocket();
+			
+			// Refresh parameters
+			refreshParameters();
+			
+			// Initialize plot
+			createPlot(10, 10, [[]]);
+			
+			// Start drawing the plot
+			startDrawingPlot();
+			
+		});
+		
+	</script>
+</html>
